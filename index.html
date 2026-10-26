@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0e17" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Bangla Tesla" />
+  <title>Bangla Tesla · বাংলা টেসলা</title>
+  <meta name="description" content="ঢাকার রাস্তায় থ্রাস্টারযুক্ত বাংলা টেসলা চালান। উড়ুন, ফ্লিপ করুন, ধাক্কা মারুন, চার্জ নিন। ফ্রি ব্রাউজার গেম।" />
+  <meta name="author" content="Rahat Ahmed" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --accent: #00e5ff;
+      --accent2: #ff2d95;
+      --warn: #ffcc00;
+      --text: #e8f0ff;
+      --panel: rgba(10, 14, 23, 0.85);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Bengali", sans-serif;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---------- HUD ---------- */
+    #hud {
+      position: absolute; inset: 0; pointer-events: none;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: calc(12px + env(safe-area-inset-top)) 16px calc(12px + env(safe-area-inset-bottom));
+    }
+    .hud-top {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    }
+    .stat {
+      background: var(--panel); border: 1px solid rgba(0,229,255,0.35);
+      border-radius: 10px; padding: 8px 14px; min-width: 110px;
+    }
+    .stat label { display: block; font-size: 11px; opacity: 0.7; letter-spacing: 0.05em; }
+    .stat .val { font-size: 22px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+    #batteryBar {
+      height: 6px; background: #1a2030; border-radius: 3px; margin-top: 6px; overflow: hidden;
+    }
+    #batteryFill {
+      height: 100%; width: 100%; background: linear-gradient(90deg, #ff2d95, #00e5ff);
+      transition: width 0.2s;
+    }
+    #modeTag {
+      font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+      background: var(--accent2); color: #fff; display: none;
+    }
+    #modeTag.paddle { display: inline-block; background: var(--warn); color: #111; }
+    #modeTag.hover { display: inline-block; background: var(--accent); color: #000; }
+
+    /* ---------- On-screen controls ---------- */
+    #touch {
+      position: absolute; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom));
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding: 0 16px; pointer-events: none; z-index: 10;
+    }
+    #touch.hidden { display: none !important; }
+    .t-group { display: flex; gap: 10px; pointer-events: auto; }
+    .t-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.45); background: rgba(10,14,23,0.55);
+      color: #fff; font-weight: 800; font-size: 13px;
+      display: grid; place-items: center; touch-action: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .t-btn.active { background: rgba(0,229,255,0.45); transform: scale(0.94); }
+    .t-btn.gas { width: 88px; height: 88px; border-color: #00e5ff; }
+    .t-btn.brake { width: 72px; height: 72px; border-color: #ff2d95; }
+    .t-btn.thruster { border-color: #ffcc00; color: #ffcc00; }
+    .t-btn.charge { display: none; border-color: #4dff95; color: #4dff95; }
+    .t-btn.charge.show { display: grid; }
+    #stickZone {
+      width: 130px; height: 130px; border-radius: 50%;
+      background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.25);
+      position: relative; pointer-events: auto; touch-action: none;
+    }
+    #stick {
+      width: 54px; height: 54px; border-radius: 50%; background: rgba(0,229,255,0.7);
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      pointer-events: none;
+    }
+
+    /* ---------- Labels when gamepad/keyboard active ---------- */
+    #inputLabels {
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+      background: var(--panel); border: 1px solid rgba(0,229,255,0.3);
+      border-radius: 12px; padding: 10px 14px; font-size: 12px; line-height: 1.6;
+      pointer-events: none; display: none; max-width: 180px;
+    }
+    #inputLabels.show { display: block; }
+    #inputLabels b { color: var(--accent); }
+
+    /* ---------- Menu ---------- */
+    #menu {
+      position: absolute; inset: 0; background: linear-gradient(180deg, #0a0e17 0%, #121a2e 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; z-index: 50; overflow: auto;
+    }
+    #menu.hidden { display: none; }
+    .logo {
+      font-size: clamp(36px, 10vw, 64px); font-weight: 900; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #00e5ff, #ff2d95);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-align: center; margin-bottom: 8px;
+    }
+    .tagline { opacity: 0.8; margin-bottom: 28px; text-align: center; max-width: 420px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 20px; }
+    .btn {
+      pointer-events: auto; cursor: pointer; border: none; border-radius: 12px;
+      padding: 14px 28px; font-size: 18px; font-weight: 800; color: #0a0e17;
+      background: linear-gradient(135deg, #00e5ff, #00b8d4); box-shadow: 0 6px 0 #00838f;
+    }
+    .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #00838f; }
+    .btn.secondary {
+      background: transparent; color: var(--text); border: 2px solid rgba(255,255,255,0.35);
+      box-shadow: none;
+    }
+    .credit {
+      margin-top: 32px; text-align: center; font-size: 13px; opacity: 0.75; line-height: 1.6;
+    }
+    .credit a { color: var(--accent); text-decoration: none; }
+    .credit a:hover { text-decoration: underline; }
+
+    /* ---------- Settings / Mapping ---------- */
+    #settings {
+      position: absolute; inset: 0; background: rgba(5,8,15,0.92);
+      display: none; flex-direction: column; align-items: center; padding: 24px;
+      z-index: 60; overflow: auto;
+    }
+    #settings.show { display: flex; }
+    #settings h2 { margin-bottom: 16px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+    .tab {
+      padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3);
+      background: transparent; color: var(--text); cursor: pointer; font-weight: 700;
+    }
+    .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .map-list { width: 100%; max-width: 420px; display: grid; gap: 8px; }
+    .map-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--panel); border-radius: 10px; padding: 10px 14px;
+    }
+    .map-row button {
+      background: rgba(0,229,255,0.2); border: 1px solid var(--accent);
+      color: var(--accent); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+    }
+    .close-btn {
+      margin-top: 24px; padding: 12px 28px; border-radius: 10px;
+      background: var(--accent2); color: #fff; border: none; font-weight: 800; cursor: pointer;
+    }
+
+    /* ---------- Landscape warn ---------- */
+    #orient {
+      display: none; position: absolute; inset: 0; background: #0a0e17;
+      z-index: 100; place-items: center; text-align: center; padding: 24px;
+    }
+    #orient.show { display: grid; }
+    #orient h2 { margin-bottom: 12px; }
+
+    /* ---------- Charge prompt ---------- */
+    #chargePrompt {
+      position: absolute; left: 50%; bottom: 140px; transform: translateX(-50%);
+      background: rgba(0,40,20,0.9); border: 2px solid #4dff95; color: #4dff95;
+      padding: 10px 18px; border-radius: 999px; font-weight: 800; display: none;
+      pointer-events: none;
+    }
+    #chargePrompt.show { display: block; }
+
+    /* ---------- Pause / top menu bar ---------- */
+    #topBar {
+      position: absolute; top: calc(8px + env(safe-area-inset-top)); left: 50%;
+      transform: translateX(-50%); display: none; gap: 8px; z-index: 20;
+      pointer-events: auto;
+    }
+    #topBar.show { display: flex; }
+    #topBar button {
+      background: var(--panel); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="c"></canvas>
+
+    <div id="hud">
+      <div class="hud-top">
+        <div class="stat">
+          <label>ক্ষতি (Damage)</label>
+          <div class="val" id="damageVal">0</div>
+        </div>
+        <div class="stat" style="text-align:right">
+          <label>ব্যাটারি <span id="modeTag"></span></label>
+          <div class="val" id="battVal">100%</div>
+          <div id="batteryBar"><div id="batteryFill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="touch">
+      <div class="t-group">
+        <div id="stickZone"><div id="stick"></div></div>
+      </div>
+      <div class="t-group" style="flex-direction:column; align-items:flex-end; gap:10px">
+        <button class="t-btn thruster" id="tThruster" data-action="thruster">THRUST</button>
+        <button class="t-btn charge" id="tCharge" data-action="charge">চার্জ</button>
+        <div style="display:flex; gap:10px">
+          <button class="t-btn brake" id="tBrake" data-action="brake">ব্রেক</button>
+          <button class="t-btn gas" id="tGas" data-action="gas">গ্যাস</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="inputLabels"></div>
+    <div id="chargePrompt">R1 চাপুন চার্জ করতে</div>
+
+    <div id="topBar">
+      <button id="btnFullscreen">Fullscreen</button>
+      <button id="btnSettings">Controls</button>
+      <button id="btnMenu">মেনু</button>
+    </div>
+
+    <div id="menu">
+      <div class="logo">Bangla Tesla</div>
+      <p class="tagline">ঢাকার রাস্তায় থ্রাস্টারযুক্ত বাংলা টেসলা চালান। উড়ুন, ফ্লিপ করুন, ধাক্কা মারুন।</p>
+      <div class="btn-row">
+        <button class="btn" id="btnPlay">রাস্তায় নামুন</button>
+        <button class="btn secondary" id="btnControls">কন্ট্রোল ম্যাপিং</button>
+        <button class="btn secondary" id="btnFSMenu">Fullscreen</button>
+      </div>
+      <div class="credit">
+        Made by <b>Rahat Ahmed</b><br>
+        <a href="https://facebook.com/HarbingerX" target="_blank" rel="noopener">Facebook</a> ·
+        <a href="https://linkedin.com/in/RahatAhmedX" target="_blank" rel="noopener">LinkedIn</a> ·
+        <a href="https://github.com/Rahat0764" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+
+    <div id="settings">
+      <h2>Control Mapping</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="onscreen">On-screen</button>
+        <button class="tab" data-tab="gamepad">Gamepad</button>
+        <button class="tab" data-tab="keyboard">Keyboard</button>
+      </div>
+      <div id="mapContent" class="map-list"></div>
+      <button class="close-btn" id="btnCloseSettings">বন্ধ করুন</button>
+    </div>
+
+    <div id="orient">
+      <h2>ল্যান্ডস্কেপ মোডে খেলুন</h2>
+      <p>ফোনটি ঘুরিয়ে রাখুন</p>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
