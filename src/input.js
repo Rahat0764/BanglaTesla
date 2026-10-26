@@ -13,17 +13,17 @@ const DEFAULT_KEYBOARD = {
   boost: 'ShiftLeft',
   horn: 'KeyH',
   charge: 'KeyE',
-  exit: 'KeyF'
+  exit: 'KeyF'          // mama nambe
 };
 
 const DEFAULT_GAMEPAD = {
   gas: 'r2',
   brake: 'l2',
-  thruster: 'cross',        // ✕ / A
-  boost: 'square',          // □ / X
+  thruster: 'cross',     // ✕ / A
+  boost: 'square',       // □ / X
   horn: 'l1',
   charge: 'r1',
-  // left stick = steer, right stick = thruster flip
+  exit: 'triangle'       // △ / Y → mama nambe
 };
 
 export class InputManager {
@@ -187,18 +187,19 @@ export class InputManager {
     if (anyPressed) this._switchDevice('gamepad');
 
     const btn = (i) => gp.buttons[i]?.value || 0;
-    // Standard mapping (Xbox / most browsers)
-    // 0=A/cross, 1=B/circle, 2=X/square, 3=Y/triangle
-    // 4=LB/l1, 5=RB/r1, 6=LT/l2, 7=RT/r2
-    this.state.gas = btn(7);          // R2
-    this.state.brake = btn(6);        // L2
-    this.state.thruster = btn(0) > 0.3; // Cross / A
-    this.state.boost = btn(2) > 0.3;   // Square / X
-    this.state.horn = btn(4) > 0.3;    // L1
-    this.state.charge = btn(5) > 0.3;  // R1
-    this.state.steer = gp.axes[0] || 0; // left stick X
-    this.state.flipX = gp.axes[2] || 0; // right stick X
-    this.state.flipY = gp.axes[3] || 0; // right stick Y
+    // Standard mapping (Xbox / DualShock style in browsers)
+    // 0=A/✕, 1=B/○, 2=X/□, 3=Y/△
+    // 4=LB/L1, 5=RB/R1, 6=LT/L2, 7=RT/R2
+    this.state.gas = btn(7);             // R2 → forward
+    this.state.brake = btn(6);           // L2 → brake / reverse
+    this.state.thruster = btn(0) > 0.25; // ✕ Cross / A
+    this.state.boost = btn(2) > 0.25;    // □ Square / X
+    this.state.horn = btn(4) > 0.25;     // L1
+    this.state.charge = btn(5) > 0.25;   // R1
+    this.state.exit = btn(3) > 0.25;     // △ Triangle / Y → mama nambe
+    this.state.steer = gp.axes[0] || 0;  // left stick X
+    this.state.flipX = gp.axes[2] || 0;  // right stick X
+    this.state.flipY = -(gp.axes[3] || 0); // right stick Y (invert for natural)
   }
 
   // ---------- Device switch + UI labels ----------
@@ -222,10 +223,11 @@ export class InputManager {
     if (this.activeDevice === 'gamepad') {
       el.innerHTML = `
         <b>R2</b> সামনে<br>
-        <b>L2</b> পেছনে<br>
+        <b>L2</b> ব্রেক / পেছনে<br>
         <b>Left Stick</b> স্টিয়ার<br>
         <b>✕</b> থ্রাস্টার<br>
         <b>□</b> বুস্ট<br>
+        <b>△</b> মামা নামবে<br>
         <b>L1</b> হর্ন<br>
         <b>R1</b> চার্জ<br>
         <b>Right Stick</b> এয়ার ফ্লিপ
@@ -233,13 +235,14 @@ export class InputManager {
     } else {
       const k = this.keys;
       el.innerHTML = `
-        <b>${k.gas.replace('Key','')}</b> গ্যাস<br>
-        <b>${k.brake.replace('Key','')}</b> ব্রেক<br>
-        <b>${k.left.replace('Key','')}/${k.right.replace('Key','')}</b> স্টিয়ার<br>
+        <b>${(k.gas||'').replace('Key','')}</b> গ্যাস<br>
+        <b>${(k.brake||'').replace('Key','')}</b> ব্রেক/পেছনে<br>
+        <b>${(k.left||'').replace('Key','')}/${(k.right||'').replace('Key','')}</b> স্টিয়ার<br>
         <b>Space</b> থ্রাস্টার<br>
         <b>Shift</b> বুস্ট<br>
-        <b>${k.horn.replace('Key','')}</b> হর্ন<br>
-        <b>${k.charge.replace('Key','')}</b> চার্জ
+        <b>F</b> মামা নামবে<br>
+        <b>${(k.horn||'').replace('Key','')}</b> হর্ন<br>
+        <b>${(k.charge||'').replace('Key','')}</b> চার্জ
       `;
     }
   }
